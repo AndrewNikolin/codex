@@ -146,17 +146,30 @@ impl CommandPopup {
         let prompt_prefix_len = PROMPTS_CMD_PREFIX.chars().count() + 1;
         let indices_for = |offset| Some((offset..offset + filter_chars).collect());
 
-        let mut push_match =
-            |item: CommandItem, display: &str, name: Option<&str>, name_offset: usize| {
-                let display_lower = display.to_lowercase();
-                let name_lower = name.map(str::to_lowercase);
-                let display_exact = display_lower == filter_lower;
-                let name_exact = name_lower.as_deref() == Some(filter_lower.as_str());
-                if display_exact || name_exact {
-                    let offset = if display_exact { 0 } else { name_offset };
-                    exact.push((item, indices_for(offset)));
-                    return;
-                }
+        let mut push_match = |item: CommandItem,
+                              display: &str,
+                              name: Option<&str>,
+                              name_offset: usize,
+                              allow_substring: bool| {
+            let display_lower = display.to_lowercase();
+            let name_lower = name.map(str::to_lowercase);
+            let display_exact = display_lower == filter_lower;
+            let name_exact = name_lower.as_deref() == Some(filter_lower.as_str());
+            if display_exact || name_exact {
+                let offset = if display_exact { 0 } else { name_offset };
+                exact.push((item, indices_for(offset)));
+                return;
+            }
+            let display_prefix = display_lower.starts_with(&filter_lower);
+            let name_prefix = name_lower
+                .as_ref()
+                .is_some_and(|name| name.starts_with(&filter_lower));
+            if display_prefix || name_prefix {
+                let offset = if display_prefix { 0 } else { name_offset };
+                prefix.push((item, indices_for(offset)));
+                return;
+            }
+            if allow_substring {
                 if let Some(offset) = display_lower.find(&filter_lower) {
                     prefix.push((item, indices_for(offset)));
                     return;
@@ -167,10 +180,11 @@ impl CommandPopup {
                 {
                     prefix.push((item, indices_for(offset + name_offset)));
                 }
-            };
+            }
+        };
 
         for (_, cmd) in self.builtins.iter() {
-            push_match(CommandItem::Builtin(*cmd), cmd.command(), None, 0);
+            push_match(CommandItem::Builtin(*cmd), cmd.command(), None, 0, false);
         }
         // Support both search styles:
         // - Typing "name" should surface "/prompts:name" results.
@@ -182,6 +196,7 @@ impl CommandPopup {
                 &display,
                 Some(&p.name),
                 prompt_prefix_len,
+                true,
             );
         }
 
