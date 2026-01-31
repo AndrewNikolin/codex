@@ -157,13 +157,15 @@ impl CommandPopup {
                     exact.push((item, indices_for(offset)));
                     return;
                 }
-                let display_prefix = display_lower.starts_with(&filter_lower);
-                let name_prefix = name_lower
-                    .as_ref()
-                    .is_some_and(|name| name.starts_with(&filter_lower));
-                if display_prefix || name_prefix {
-                    let offset = if display_prefix { 0 } else { name_offset };
+                if let Some(offset) = display_lower.find(&filter_lower) {
                     prefix.push((item, indices_for(offset)));
+                    return;
+                }
+                if let Some(offset) = name_lower
+                    .as_ref()
+                    .and_then(|name| name.find(&filter_lower))
+                {
+                    prefix.push((item, indices_for(offset + name_offset)));
                 }
             };
 
